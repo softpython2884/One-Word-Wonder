@@ -293,5 +293,3 @@ export function GameBoard() {
     </div>
   );
 }
-
-    
