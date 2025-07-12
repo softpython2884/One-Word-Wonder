@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, Star, BrainCircuit, Check, X, Heart, ChevronsRight } from 'lucide-react';
+import { Clock, Star, BrainCircuit, Check, X, Heart, ChevronsRight, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { INITIAL_WORDS, type Word } from '@/lib/words';
@@ -15,6 +15,7 @@ type GameState = 'start' | 'playing' | 'correct' | 'incorrect' | 'skipped' | 'ga
 
 const ROUND_TIME = 60;
 const MAX_LIVES = 3;
+const HIGH_SCORE_KEY = 'mot-magique-highscore';
 
 export function GameBoard() {
   const [gameState, setGameState] = useState<GameState>('start');
@@ -24,12 +25,28 @@ export function GameBoard() {
   const [letterPool, setLetterPool] = useState<string[]>([]);
   const [userGuess, setUserGuess] = useState<string[]>([]);
   const [score, setScore] = useState(0);
+  const [highScore, setHighScore] = useState(0);
   const [lives, setLives] = useState(MAX_LIVES);
   const [streak, setStreak] = useState(0);
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
-  const [shaking, setShaking] = useState(false);
   const { toast } = useToast();
   const { playSound } = useSounds();
+
+  useEffect(() => {
+    // This code runs only on the client, after the component has mounted.
+    const savedHighScore = localStorage.getItem(HIGH_SCORE_KEY);
+    if (savedHighScore) {
+      setHighScore(parseInt(savedHighScore, 10));
+    }
+  }, []);
+
+  const updateHighScore = useCallback(() => {
+    if (score > highScore) {
+      setHighScore(score);
+      localStorage.setItem(HIGH_SCORE_KEY, score.toString());
+    }
+  }, [score, highScore]);
+
 
   const currentWordDisplay = useMemo(() => currentWord?.word.toUpperCase() ?? '', [currentWord]);
 
@@ -37,6 +54,7 @@ export function GameBoard() {
     if (lives <= 0 || currentRound >= wordList.length) {
       setGameState('gameOver');
       playSound('gameOver');
+      updateHighScore();
       return;
     }
     const word = wordList[currentRound];
@@ -45,7 +63,7 @@ export function GameBoard() {
     setUserGuess([]);
     setTimeLeft(ROUND_TIME);
     setGameState('playing');
-  }, [currentRound, wordList, lives, playSound]);
+  }, [currentRound, wordList, lives, playSound, updateHighScore]);
 
   const startGame = useCallback(() => {
     setCurrentRound(0);
@@ -69,20 +87,22 @@ export function GameBoard() {
        }, 1500);
        return () => clearTimeout(timer);
     }
-  }, [currentRound, gameState]);
+  }, [gameState, setupRound]);
+  
+  const loseLifeAndContinue = useCallback((state: 'incorrect' | 'skipped', message: string) => {
+    playSound('incorrect');
+    toast({ title: message, description: `Le mot était : ${currentWord?.word}`, variant: 'destructive' });
+    setLives(l => l - 1);
+    setStreak(0);
+    setGameState(state);
+    // No need for setTimeout here, useEffect for gameState handles it
+  }, [currentWord, playSound, toast]);
 
   useEffect(() => {
     if (gameState !== 'playing') return;
 
     if (timeLeft === 0) {
-      playSound('incorrect');
-      toast({ title: "Temps écoulé !", description: `Le mot était : ${currentWord?.word}`, variant: 'destructive' });
-      setLives(l => l - 1);
-      setStreak(0);
-      setGameState('incorrect');
-      setTimeout(() => {
-        nextRound();
-      }, 2000);
+      loseLifeAndContinue('incorrect', "Temps écoulé !");
       return;
     }
 
@@ -91,7 +111,7 @@ export function GameBoard() {
     }, 1000);
     
     return () => clearInterval(timer);
-  }, [gameState, timeLeft, currentWord, toast, nextRound, playSound]);
+  }, [gameState, timeLeft, loseLifeAndContinue]);
 
   const handleLetterClick = (letter: string, index: number) => {
     if (userGuess.length < (currentWord?.word.length ?? 0)) {
@@ -120,14 +140,7 @@ export function GameBoard() {
   };
   
   const handleSkip = () => {
-    playSound('incorrect');
-    setLives(l => l - 1);
-    setStreak(0);
-    setGameState('skipped');
-    toast({ title: "Mot passé", description: `Le mot était : ${currentWord?.word}`, variant: 'destructive'});
-    setTimeout(() => {
-        nextRound();
-    }, 1500);
+    loseLifeAndContinue('skipped', "Mot passé");
   };
 
   const handleSubmit = () => {
@@ -138,22 +151,9 @@ export function GameBoard() {
       setScore(s => s + 10 + timeBonus + streakBonus);
       setStreak(s => s + 1);
       setGameState('correct');
-      setTimeout(() => {
-        nextRound();
-      }, 1500);
+      // No need for setTimeout, useEffect for gameState handles it
     } else {
-      playSound('incorrect');
-      setLives(l => l - 1);
-      setStreak(0);
-      setGameState('incorrect');
-      setShaking(true);
-      toast({ title: "Incorrect !", description: "Essayez encore.", variant: 'destructive' });
-      setTimeout(() => {
-        setShaking(false);
-        setUserGuess([]);
-        setLetterPool(generateLetterPool(currentWord!.word));
-        setGameState('playing');
-      }, 1000);
+       loseLifeAndContinue('incorrect', "Incorrect !");
     }
   };
 
@@ -170,6 +170,10 @@ export function GameBoard() {
             <CardDescription>{gameState === 'start' ? "Testez votre vocabulaire français !" : "Partie terminée !"}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+             <div className="flex justify-center items-center gap-2 text-muted-foreground">
+                <Trophy className="h-5 w-5 text-yellow-500" />
+                <p>Meilleur score : {highScore}</p>
+            </div>
             {gameState === 'gameOver' && <p className="text-2xl">Votre score final : {score}</p>}
             <Button size="lg" onClick={startGame}>
               {gameState === 'start' ? "Commencer le jeu" : "Rejouer"}
@@ -192,7 +196,7 @@ export function GameBoard() {
             {Array.from({ length: MAX_LIVES }).map((_, i) => (
               <Heart
                 key={i}
-                className={`transition-all ${i < lives ? 'text-red-500 fill-current' : 'text-muted-foreground'}`}
+                className={`transition-all ${i < lives ? 'text-red-500 fill-current animate-pulse' : 'text-muted-foreground'}`}
               />
             ))}
           </div>
@@ -210,7 +214,7 @@ export function GameBoard() {
             transition={{ duration: 0.3 }}
             className="w-full"
         >
-        <Card className={`w-full transition-shadow duration-300 ${shaking ? 'animate-shake' : ''} ${gameState === 'correct' ? 'shadow-lg shadow-green-500/30' : ''}`}>
+        <Card className={`w-full transition-shadow duration-300 ${gameState === 'correct' ? 'shadow-lg shadow-green-500/30' : ''}`}>
           <CardHeader>
             <div className="flex items-center gap-2 text-muted-foreground self-center">
               <BrainCircuit className="h-5 w-5" />
@@ -258,7 +262,7 @@ export function GameBoard() {
             exit={{ opacity: 0, scale: 0.5 }}
             className="fixed inset-0 bg-background/80 flex flex-col items-center justify-center z-10"
           >
-            <div className={`p-8 rounded-full shadow-2xl ${gameState === 'correct' ? 'bg-green-100 animate-pulse-correct' : 'bg-red-100 animate-shake'}`}>
+            <div className={`p-8 rounded-full shadow-2xl ${gameState === 'correct' ? 'bg-green-100 animate-pulse' : 'bg-red-100 animate-shake'}`}>
               {gameState === 'correct' ? (
                  <Check className="w-24 h-24 text-green-500" />
               ) : (
