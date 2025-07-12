@@ -10,25 +10,35 @@ import { INITIAL_WORDS, type Word } from '@/lib/words';
 import { generateLetterPool, shuffleArray, normalizeString } from '@/lib/game-utils';
 import { ExpandContent } from './ExpandContent';
 import { useToast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 type GameState = 'start' | 'playing' | 'correct' | 'incorrect' | 'skipped' | 'gameOver';
+type Difficulty = 'normal' | 'hardcore';
 
 const ROUND_TIME = 60;
-const MAX_LIVES = 3;
 const HINTS_PER_GAME = 3;
 const HIGH_SCORE_KEY = 'mot-magique-highscore';
 const STREAK_TO_REGAIN_LIFE = 5;
 
+const LIVES_BY_DIFFICULTY: Record<Difficulty, number> = {
+    normal: 3,
+    hardcore: 1,
+};
+
 export function GameBoard() {
   const [wordList, setWordList] = useState<Word[]>([]);
   const [gameState, setGameState] = useState<GameState>('start');
+  const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [currentRound, setCurrentRound] = useState(0);
   const [currentWord, setCurrentWord] = useState<Word | null>(null);
   const [letterPool, setLetterPool] = useState<string[]>([]);
   const [userGuess, setUserGuess] = useState<string[]>([]);
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
-  const [lives, setLives] = useState(MAX_LIVES);
+  const [lives, setLives] = useState(LIVES_BY_DIFFICULTY.normal);
+  const [maxLives, setMaxLives] = useState(LIVES_BY_DIFFICULTY.normal);
   const [hintsLeft, setHintsLeft] = useState(HINTS_PER_GAME);
   const [streak, setStreak] = useState(0);
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
@@ -107,15 +117,17 @@ export function GameBoard() {
   };
 
   const startGame = useCallback(() => {
+    const startingLives = LIVES_BY_DIFFICULTY[difficulty];
+    setMaxLives(startingLives);
+    setLives(startingLives);
     setWordList(shuffleArray([...INITIAL_WORDS]));
     setCurrentRound(0);
     setScore(0);
-    setLives(MAX_LIVES);
     setHintsLeft(HINTS_PER_GAME);
     setStreak(0);
     setupRound(0);
     requestFullScreen();
-  }, [setupRound]);
+  }, [setupRound, difficulty]);
   
   const loseLifeAndContinue = useCallback((state: 'incorrect' | 'skipped', message: string) => {
     toast({ title: message, description: `Le mot était : ${currentWordDisplay}`, variant: 'destructive' });
@@ -166,7 +178,7 @@ export function GameBoard() {
   };
 
   const handleBackspace = () => {
-    if (gameState !== 'playing') return;
+    if (gameState !== 'playing' || difficulty === 'hardcore') return;
     let lastFilledIndex = -1;
     for (let i = userGuess.length - 1; i >= 0; i--) {
         if (userGuess[i] !== '' && !revealedByHint.includes(i)) {
@@ -254,7 +266,7 @@ export function GameBoard() {
 
       if (newStreak > 0 && newStreak % STREAK_TO_REGAIN_LIFE === 0) {
         setLives(l => {
-            if (l < MAX_LIVES) {
+            if (l < maxLives) {
                 toast({ title: "Vie récupérée !", description: "Super série ! Vous avez regagné une vie." });
                 return l + 1;
             }
@@ -287,6 +299,24 @@ export function GameBoard() {
                 <p>Meilleur score : {highScore}</p>
             </div>
             {gameState === 'gameOver' && <p className="text-2xl">Votre score final : {score}</p>}
+            
+            {gameState === 'start' && (
+              <div className="flex flex-col items-center gap-4 p-4">
+                <div className="w-full max-w-xs">
+                  <Label htmlFor="difficulty-select" className="mb-2 block text-sm font-medium text-muted-foreground">Difficulté</Label>
+                  <Select value={difficulty} onValueChange={(value: Difficulty) => setDifficulty(value)}>
+                    <SelectTrigger id="difficulty-select" className="w-full">
+                      <SelectValue placeholder="Choisir la difficulté..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">Normal (3 vies)</SelectItem>
+                      <SelectItem value="hardcore">Hardcore (1 vie, pas d'effacement)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
             <Button size="lg" onClick={startGame}>
                <Gamepad2 className="mr-2" />
               {gameState === 'start' ? "Commencer le jeu" : "Rejouer"}
@@ -307,7 +337,7 @@ export function GameBoard() {
               <Star className="text-primary"/> <span>{score}</span>
           </div>
            <div className="flex items-center gap-2">
-            {Array.from({ length: MAX_LIVES }).map((_, i) => (
+            {Array.from({ length: maxLives }).map((_, i) => (
               <Heart
                 key={i}
                 className={`transition-all ${i < lives ? 'text-red-500 fill-current animate-pulse' : 'text-muted-foreground'}`}
@@ -364,7 +394,7 @@ export function GameBoard() {
             
             <div className="w-full flex flex-col items-center gap-2 md:gap-3">
               <div className="flex justify-center gap-2 md:gap-4">
-                 <Button onClick={handleBackspace} variant="secondary" disabled={gameState !== 'playing'}><RotateCcw className="mr-2" />Effacer</Button>
+                 <Button onClick={handleBackspace} variant="secondary" disabled={gameState !== 'playing' || difficulty === 'hardcore'}><RotateCcw className="mr-2" />Effacer</Button>
                   <Button onClick={useHint} variant="outline" className="bg-yellow-400 hover:bg-yellow-500" disabled={hintsLeft <= 0 || gameState !== 'playing'}>
                     <Lightbulb className="mr-2" /> Indice
                   </Button>
@@ -418,3 +448,5 @@ export function GameBoard() {
     </div>
   );
 }
+
+    
