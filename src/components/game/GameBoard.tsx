@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, Star, BrainCircuit, Check, X, Heart, ChevronsRight, Trophy, Lightbulb, Gamepad2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -35,12 +35,19 @@ export function GameBoard() {
   const [revealedByHint, setRevealedByHint] = useState<number[]>([]);
   const { toast } = useToast();
   
+  const transitionTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     const savedHighScore = localStorage.getItem(HIGH_SCORE_KEY);
     if (savedHighScore) {
       setHighScore(parseInt(savedHighScore, 10));
     }
     setWordList(shuffleArray([...INITIAL_WORDS]));
+    return () => {
+      if(transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+      }
+    }
   }, []);
 
   const updateHighScore = useCallback(() => {
@@ -68,6 +75,10 @@ export function GameBoard() {
     setTimeLeft(ROUND_TIME);
     setGameState('playing');
   }, [wordList, lives, updateHighScore]);
+
+  const advanceToNextRound = useCallback(() => {
+    setCurrentRound(prev => prev + 1);
+  }, []);
   
   const requestFullScreen = () => {
     const element = document.documentElement;
@@ -93,12 +104,22 @@ export function GameBoard() {
     requestFullScreen();
   }, [setupRound]);
   
+  const transitionToNextRound = useCallback(() => {
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+      }
+      transitionTimerRef.current = setTimeout(() => {
+        advanceToNextRound();
+      }, 1500);
+  }, [advanceToNextRound]);
+
   const loseLifeAndContinue = useCallback((state: 'incorrect' | 'skipped', message: string) => {
     toast({ title: message, description: `Le mot était : ${currentWordDisplay}`, variant: 'destructive' });
     setLives(l => l - 1);
     setStreak(0);
     setGameState(state);
-  }, [currentWordDisplay, toast]);
+    transitionToNextRound();
+  }, [currentWordDisplay, toast, transitionToNextRound]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout | undefined;
@@ -113,21 +134,11 @@ export function GameBoard() {
   }, [gameState, timeLeft, loseLifeAndContinue]);
 
   useEffect(() => {
-    let transitionTimer: NodeJS.Timeout | undefined;
-    if (['correct', 'incorrect', 'skipped'].includes(gameState)) {
-      transitionTimer = setTimeout(() => {
-        setCurrentRound(prev => prev + 1);
-      }, 1500);
-    }
-    return () => clearTimeout(transitionTimer);
-  }, [gameState]);
-
-
-  useEffect(() => {
-    if(gameState !== 'start' && gameState !== 'gameOver' && currentRound > 0) {
+    // Only setup round when currentRound changes and game is not over
+    if (gameState !== 'start' && gameState !== 'gameOver') {
         setupRound(currentRound);
     }
-  }, [currentRound, setupRound, gameState]);
+  }, [currentRound, gameState, setupRound]);
 
 
   useEffect(() => {
@@ -139,6 +150,7 @@ export function GameBoard() {
 
 
   const handleLetterClick = (letter: string, index: number) => {
+    if (gameState !== 'playing') return;
     const firstEmptyIndex = userGuess.findIndex(l => l === '');
     if (firstEmptyIndex !== -1) {
       const newGuess = [...userGuess];
@@ -152,6 +164,7 @@ export function GameBoard() {
   };
 
   const handleBackspace = () => {
+    if (gameState !== 'playing') return;
     let lastFilledIndex = -1;
     for (let i = userGuess.length - 1; i >= 0; i--) {
         if (userGuess[i] !== '' && !revealedByHint.includes(i)) {
@@ -183,7 +196,7 @@ export function GameBoard() {
   const useHint = () => {
     if (hintsLeft <= 0 || gameState !== 'playing') return;
 
-    const unrevealedIndices = normalizedCurrentWord.split('').map((_, i) => i).filter(i => !userGuess[i]);
+    const unrevealedIndices = normalizedCurrentWord.split('').map((_, i) => i).filter(i => !userGuess[i] || userGuess[i] !== normalizedCurrentWord[i]);
 
     if(unrevealedIndices.length === 0) return;
 
@@ -192,7 +205,6 @@ export function GameBoard() {
     
     const newGuess = [...userGuess];
     
-    // Return any misplaced letter at this position to the pool
     if (newGuess[randomIndex] && newGuess[randomIndex] !== '') {
        const letterToReturn = newGuess[randomIndex];
        const firstEmptyPoolIndex = letterPool.findIndex(l => l === '');
@@ -205,10 +217,20 @@ export function GameBoard() {
     
     newGuess[randomIndex] = correctLetter;
     
-    setRevealedByHint([...revealedByHint, randomIndex]);
+    setRevealedByHint(prev => [...prev, randomIndex]);
     
-    // Find the letter in the pool and remove it
-    const poolIndex = letterPool.findIndex(l => l === correctLetter);
+    const poolIndex = letterPool.findIndex((l, idx) => {
+        if (l === correctLetter) {
+            const guessCount = newGuess.filter(gl => gl === correctLetter).length;
+            const poolCount = letterPool.filter(pl => pl === correctLetter).length;
+            const originalCount = normalizedCurrentWord.split('').filter(cl => cl === correctLetter).length;
+            if (guessCount <= originalCount) {
+                return true;
+            }
+        }
+        return false;
+    });
+
     if (poolIndex !== -1) {
         const newPool = [...letterPool];
         newPool[poolIndex] = '';
@@ -239,6 +261,7 @@ export function GameBoard() {
       }
 
       setGameState('correct');
+      transitionToNextRound();
     } else {
        loseLifeAndContinue('incorrect', "Incorrect !");
     }
@@ -390,3 +413,5 @@ export function GameBoard() {
     </div>
   );
 }
+
+    
