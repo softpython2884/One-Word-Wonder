@@ -20,8 +20,8 @@ const ExpandWordListInputSchema = z.object({
   count: z
     .number()
     .describe(
-      'The number of new words to generate.
-    ')
+      'The number of new words to generate.'
+    )
 });
 export type ExpandWordListInput = z.infer<typeof ExpandWordListInputSchema>;
 
