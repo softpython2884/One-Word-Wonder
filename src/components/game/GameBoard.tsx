@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, Star, BrainCircuit, Check, X, Heart, ChevronsRight, Trophy } from 'lucide-react';
+import { Clock, Star, BrainCircuit, Check, X, Heart, ChevronsRight, Trophy, Lightbulb, Gamepad2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { INITIAL_WORDS, type Word } from '@/lib/words';
@@ -14,6 +14,7 @@ type GameState = 'start' | 'playing' | 'correct' | 'incorrect' | 'skipped' | 'ga
 
 const ROUND_TIME = 60;
 const MAX_LIVES = 3;
+const HINTS_PER_GAME = 3;
 const HIGH_SCORE_KEY = 'mot-magique-highscore';
 const STREAK_TO_REGAIN_LIFE = 5;
 
@@ -27,8 +28,10 @@ export function GameBoard() {
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [lives, setLives] = useState(MAX_LIVES);
+  const [hintsLeft, setHintsLeft] = useState(HINTS_PER_GAME);
   const [streak, setStreak] = useState(0);
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
+  const [revealedByHint, setRevealedByHint] = useState<number[]>([]);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -36,7 +39,6 @@ export function GameBoard() {
     if (savedHighScore) {
       setHighScore(parseInt(savedHighScore, 10));
     }
-    // Initial shuffle
     setWordList(shuffleArray([...INITIAL_WORDS]));
   }, []);
 
@@ -58,19 +60,36 @@ export function GameBoard() {
     }
     const word = wordList[roundIndex];
     setCurrentWord(word);
-    setLetterPool(generateLetterPool(normalizeString(word.word)));
-    setUserGuess([]);
+    const normalizedWord = normalizeString(word.word);
+    setLetterPool(generateLetterPool(normalizedWord));
+    setUserGuess(Array(normalizedWord.length).fill(''));
+    setRevealedByHint([]);
     setTimeLeft(ROUND_TIME);
     setGameState('playing');
   }, [wordList, lives, updateHighScore]);
+  
+  const requestFullScreen = () => {
+    const element = document.documentElement;
+    if (element.requestFullscreen) {
+      element.requestFullscreen().catch(err => console.log(err));
+    } else if ((element as any).mozRequestFullScreen) { // Firefox
+      (element as any).mozRequestFullScreen();
+    } else if ((element as any).webkitRequestFullscreen) { // Chrome, Safari and Opera
+      (element as any).webkitRequestFullscreen();
+    } else if ((element as any).msRequestFullscreen) { // IE/Edge
+      (element as any).msRequestFullscreen();
+    }
+  };
 
   const startGame = useCallback(() => {
     setWordList(shuffleArray([...INITIAL_WORDS]));
     setCurrentRound(0);
     setScore(0);
     setLives(MAX_LIVES);
+    setHintsLeft(HINTS_PER_GAME);
     setStreak(0);
     setupRound(0);
+    requestFullScreen();
   }, [setupRound]);
   
   const loseLifeAndContinue = useCallback((state: 'incorrect' | 'skipped', message: string) => {
@@ -119,8 +138,12 @@ export function GameBoard() {
 
 
   const handleLetterClick = (letter: string, index: number) => {
-    if (userGuess.length < (normalizedCurrentWord.length ?? 0)) {
-      setUserGuess([...userGuess, letter]);
+    const firstEmptyIndex = userGuess.findIndex(l => l === '');
+    if (firstEmptyIndex !== -1) {
+      const newGuess = [...userGuess];
+      newGuess[firstEmptyIndex] = letter;
+      setUserGuess(newGuess);
+
       const newPool = [...letterPool];
       newPool[index] = '';
       setLetterPool(newPool);
@@ -128,23 +151,71 @@ export function GameBoard() {
   };
 
   const handleBackspace = () => {
-    if (userGuess.length > 0) {
-      const lastLetter = userGuess[userGuess.length - 1];
-      const newGuess = userGuess.slice(0, -1);
-      setUserGuess(newGuess);
-      
-      const firstEmptyIndex = letterPool.findIndex(l => l === '');
-      if (firstEmptyIndex !== -1) {
-        const newPool = [...letterPool];
-        newPool[firstEmptyIndex] = lastLetter;
-        setLetterPool(newPool);
-      }
+    let lastFilledIndex = -1;
+    for (let i = userGuess.length - 1; i >= 0; i--) {
+        if (userGuess[i] !== '' && !revealedByHint.includes(i)) {
+            lastFilledIndex = i;
+            break;
+        }
+    }
+
+    if (lastFilledIndex !== -1) {
+        const letterToReturn = userGuess[lastFilledIndex];
+        const newGuess = [...userGuess];
+        newGuess[lastFilledIndex] = '';
+        setUserGuess(newGuess);
+
+        const firstEmptyPoolIndex = letterPool.findIndex(l => l === '');
+        if (firstEmptyPoolIndex !== -1) {
+            const newPool = [...letterPool];
+            newPool[firstEmptyPoolIndex] = letterToReturn;
+            setLetterPool(newPool);
+        }
     }
   };
   
   const handleSkip = () => {
     if(gameState !== 'playing') return;
     loseLifeAndContinue('skipped', "Mot passé");
+  };
+
+  const useHint = () => {
+    if (hintsLeft <= 0 || gameState !== 'playing') return;
+
+    const unrevealedIndices = normalizedCurrentWord.split('').map((_, i) => i).filter(i => !userGuess[i]);
+
+    if(unrevealedIndices.length === 0) return;
+
+    const randomIndex = unrevealedIndices[Math.floor(Math.random() * unrevealedIndices.length)];
+    const correctLetter = normalizedCurrentWord[randomIndex];
+    
+    const newGuess = [...userGuess];
+    
+    // Return any misplaced letter at this position to the pool
+    if (newGuess[randomIndex] && newGuess[randomIndex] !== '') {
+       const letterToReturn = newGuess[randomIndex];
+       const firstEmptyPoolIndex = letterPool.findIndex(l => l === '');
+       if(firstEmptyPoolIndex !== -1) {
+         const newPool = [...letterPool];
+         newPool[firstEmptyPoolIndex] = letterToReturn;
+         setLetterPool(newPool);
+       }
+    }
+    
+    newGuess[randomIndex] = correctLetter;
+    
+    setRevealedByHint([...revealedByHint, randomIndex]);
+    
+    // Find the letter in the pool and remove it
+    const poolIndex = letterPool.findIndex(l => l === correctLetter);
+    if (poolIndex !== -1) {
+        const newPool = [...letterPool];
+        newPool[poolIndex] = '';
+        setLetterPool(newPool);
+    }
+
+    setUserGuess(newGuess);
+    setHintsLeft(h => h - 1);
   };
 
   const handleSubmit = () => {
@@ -192,6 +263,7 @@ export function GameBoard() {
             </div>
             {gameState === 'gameOver' && <p className="text-2xl">Votre score final : {score}</p>}
             <Button size="lg" onClick={startGame}>
+               <Gamepad2 className="mr-2" />
               {gameState === 'start' ? "Commencer le jeu" : "Rejouer"}
             </Button>
             <div className="pt-4">
@@ -204,10 +276,10 @@ export function GameBoard() {
     }
     
     return (
-      <div className="w-full max-w-md mx-auto flex flex-col items-center gap-4 md:gap-6">
+      <div className="w-full max-w-lg mx-auto flex flex-col items-center gap-4 md:gap-6">
         <div className="w-full flex justify-between items-center text-lg px-2">
-          <div className="flex items-center gap-2 font-semibold">
-            <Star className="text-primary"/> <span>{score}</span>
+           <div className="flex items-center gap-2 font-semibold">
+              <Star className="text-primary"/> <span>{score}</span>
           </div>
            <div className="flex items-center gap-2">
             {Array.from({ length: MAX_LIVES }).map((_, i) => (
@@ -217,6 +289,10 @@ export function GameBoard() {
               />
             ))}
           </div>
+           <div className="flex items-center gap-2">
+                <Lightbulb className="text-yellow-400" />
+                <span>{hintsLeft}</span>
+            </div>
           <div className={`flex items-center gap-2 font-semibold transition-colors ${timeLeft < 10 ? 'text-destructive' : ''}`}>
             <Clock className="text-primary"/> <span>{timeLeft}s</span>
           </div>
@@ -244,7 +320,7 @@ export function GameBoard() {
           <CardContent className="flex flex-col items-center gap-4 md:gap-6">
             <div className="flex justify-center flex-wrap gap-1.5 md:gap-2">
               {normalizedCurrentWord.split('').map((_, index) => (
-                <div key={index} className="w-10 h-12 md:w-12 md:h-14 bg-secondary rounded-md flex items-center justify-center text-xl md:text-2xl font-bold uppercase shadow-inner">
+                <div key={index} className={`w-10 h-12 md:w-12 md:h-14 rounded-md flex items-center justify-center text-xl md:text-2xl font-bold uppercase shadow-inner ${revealedByHint.includes(index) ? 'bg-green-200 text-green-800' : 'bg-secondary'}`}>
                   {userGuess[index] || ''}
                 </div>
               ))}
@@ -263,7 +339,10 @@ export function GameBoard() {
             
             <div className="flex flex-wrap justify-center gap-2 md:gap-4">
               <Button onClick={handleBackspace} variant="secondary" disabled={gameState !== 'playing'}>Effacer</Button>
-              <Button onClick={handleSubmit} disabled={userGuess.length !== normalizedCurrentWord.length || gameState !== 'playing'}>Valider</Button>
+              <Button onClick={handleSubmit} disabled={userGuess.join('').length !== normalizedCurrentWord.length || gameState !== 'playing'}>Valider</Button>
+              <Button onClick={useHint} variant="outline" className="bg-yellow-400 hover:bg-yellow-500" disabled={hintsLeft <= 0 || gameState !== 'playing'}>
+                <Lightbulb className="mr-2" /> Indice
+              </Button>
               <Button onClick={handleSkip} variant="ghost" disabled={gameState !== 'playing'}>Passer <ChevronsRight className="hidden sm:inline" /></Button>
             </div>
           </CardContent>
