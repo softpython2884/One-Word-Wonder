@@ -62,19 +62,19 @@ export function GameBoard() {
   }, [currentRound, wordList, lives, updateHighScore]);
 
   const startGame = useCallback(() => {
+    setWordList(shuffleArray([...INITIAL_WORDS]));
     setCurrentRound(0);
     setScore(0);
     setLives(MAX_LIVES);
     setStreak(0);
-    setWordList(shuffleArray([...INITIAL_WORDS]));
     setGameState('playing');
   }, []);
 
   useEffect(() => {
-    if (gameState === 'playing' && !currentWord) {
+    if (gameState === 'playing') {
       setupRound();
     }
-  }, [gameState, currentWord, setupRound]);
+  }, [gameState, currentRound]);
   
   const loseLifeAndContinue = useCallback((state: 'incorrect' | 'skipped', message: string) => {
     toast({ title: message, description: `Le mot était : ${currentWord?.word.toUpperCase()}`, variant: 'destructive' });
@@ -88,14 +88,12 @@ export function GameBoard() {
     let roundTimer: NodeJS.Timeout | undefined;
     let transitionTimer: NodeJS.Timeout | undefined;
 
-    if (gameState === 'playing') {
-      if (timeLeft === 0) {
-        loseLifeAndContinue('incorrect', "Temps écoulé !");
-      } else {
-        roundTimer = setInterval(() => {
-          setTimeLeft(prev => prev - 1);
-        }, 1000);
-      }
+    if (gameState === 'playing' && timeLeft > 0) {
+      roundTimer = setInterval(() => {
+        setTimeLeft(prev => prev - 1);
+      }, 1000);
+    } else if (gameState === 'playing' && timeLeft === 0) {
+      loseLifeAndContinue('incorrect', "Temps écoulé !");
     } else if (['correct', 'incorrect', 'skipped'].includes(gameState)) {
       transitionTimer = setTimeout(() => {
         setCurrentRound(prev => prev + 1);
@@ -109,13 +107,15 @@ export function GameBoard() {
   }, [gameState, timeLeft, loseLifeAndContinue]);
 
   useEffect(() => {
-    if(currentRound > 0 && currentRound < wordList.length) {
+    if (currentRound >= wordList.length || lives <= 0) {
+      if (gameState !== 'gameOver') {
+        setGameState('gameOver');
+        updateHighScore();
+      }
+    } else if (gameState === 'playing') {
       setupRound();
-    } else if (currentRound >= wordList.length) {
-      setGameState('gameOver');
-      updateHighScore();
     }
-  }, [currentRound, wordList.length, setupRound, updateHighScore]);
+  }, [currentRound, wordList.length, lives, setupRound, updateHighScore, gameState]);
 
 
   const handleLetterClick = (letter: string, index: number) => {
@@ -143,11 +143,13 @@ export function GameBoard() {
   };
   
   const handleSkip = () => {
+    if(gameState !== 'playing') return;
     loseLifeAndContinue('skipped', "Mot passé");
   };
 
   const handleSubmit = () => {
-    if (userGuess.join('') === currentWord?.word) {
+    if(gameState !== 'playing') return;
+    if (userGuess.join('').toLowerCase() === currentWord?.word.toLowerCase()) {
       const timeBonus = Math.max(0, timeLeft);
       const streakBonus = streak * 5;
       setScore(s => s + 10 + timeBonus + streakBonus);
