@@ -44,11 +44,10 @@ export function GameBoard() {
     }
   }, [score, highScore]);
 
-
   const currentWordDisplay = useMemo(() => currentWord?.word.toUpperCase() ?? '', [currentWord]);
 
   const setupRound = useCallback((roundIndex: number) => {
-    if (lives <= 0 || roundIndex >= wordList.length) {
+    if (roundIndex >= wordList.length || lives <= 0) {
       setGameState('gameOver');
       updateHighScore();
       return;
@@ -78,10 +77,8 @@ export function GameBoard() {
   }, [currentWord, toast]);
 
   useEffect(() => {
-    if (gameState === 'playing') {
-      setupRound(currentRound);
-    }
-  }, [currentRound, setupRound, gameState]);
+    setupRound(currentRound);
+  }, [currentRound, setupRound]);
 
 
   useEffect(() => {
