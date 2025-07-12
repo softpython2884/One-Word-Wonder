@@ -47,19 +47,19 @@ export function GameBoard() {
 
   const currentWordDisplay = useMemo(() => currentWord?.word.toUpperCase() ?? '', [currentWord]);
 
-  const setupRound = useCallback(() => {
-    if (lives <= 0 || currentRound >= wordList.length) {
+  const setupRound = useCallback((roundIndex: number) => {
+    if (lives <= 0 || roundIndex >= wordList.length) {
       setGameState('gameOver');
       updateHighScore();
       return;
     }
-    const word = wordList[currentRound];
+    const word = wordList[roundIndex];
     setCurrentWord(word);
     setLetterPool(generateLetterPool(word.word));
     setUserGuess([]);
     setTimeLeft(ROUND_TIME);
     setGameState('playing');
-  }, [currentRound, wordList, lives, updateHighScore]);
+  }, [wordList, lives, updateHighScore]);
 
   const startGame = useCallback(() => {
     setWordList(shuffleArray([...INITIAL_WORDS]));
@@ -67,14 +67,8 @@ export function GameBoard() {
     setScore(0);
     setLives(MAX_LIVES);
     setStreak(0);
-    setGameState('playing');
-  }, []);
-
-  useEffect(() => {
-    if (gameState === 'playing') {
-      setupRound();
-    }
-  }, [gameState, currentRound]);
+    setupRound(0);
+  }, [setupRound]);
   
   const loseLifeAndContinue = useCallback((state: 'incorrect' | 'skipped', message: string) => {
     toast({ title: message, description: `Le mot était : ${currentWord?.word.toUpperCase()}`, variant: 'destructive' });
@@ -82,6 +76,12 @@ export function GameBoard() {
     setStreak(0);
     setGameState(state);
   }, [currentWord, toast]);
+
+  useEffect(() => {
+    if (gameState === 'playing') {
+      setupRound(currentRound);
+    }
+  }, [currentRound, setupRound, gameState]);
 
 
   useEffect(() => {
@@ -107,15 +107,11 @@ export function GameBoard() {
   }, [gameState, timeLeft, loseLifeAndContinue]);
 
   useEffect(() => {
-    if (currentRound >= wordList.length || lives <= 0) {
-      if (gameState !== 'gameOver') {
+    if ((currentRound >= wordList.length || lives <= 0) && gameState !== 'start' && gameState !== 'gameOver') {
         setGameState('gameOver');
         updateHighScore();
-      }
-    } else if (gameState === 'playing') {
-      setupRound();
     }
-  }, [currentRound, wordList.length, lives, setupRound, updateHighScore, gameState]);
+  }, [currentRound, wordList.length, lives, updateHighScore, gameState]);
 
 
   const handleLetterClick = (letter: string, index: number) => {
