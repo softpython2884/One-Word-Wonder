@@ -31,7 +31,7 @@ export function GameBoard() {
   const [streak, setStreak] = useState(0);
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
   const { toast } = useToast();
-  const { playSound } = useSounds();
+  const { playSound, isLoaded } = useSounds();
 
   useEffect(() => {
     const savedHighScore = localStorage.getItem(HIGH_SCORE_KEY);
@@ -52,8 +52,8 @@ export function GameBoard() {
 
   const setupRound = useCallback(() => {
     if (lives <= 0 || currentRound >= wordList.length) {
-      setGameState('gameOver');
       playSound('gameOver');
+      setGameState('gameOver');
       updateHighScore();
       return;
     }
@@ -72,22 +72,16 @@ export function GameBoard() {
     setStreak(0);
     setWordList(current => shuffleArray(current));
     playSound('start');
-    setupRound();
-  }, [setupRound, playSound]);
+    // We call setupRound inside a useEffect based on gameState change now
+    // to ensure sound plays first.
+    setGameState('playing'); 
+  }, [playSound]);
 
   useEffect(() => {
-    if (gameState === 'start' || gameState === 'gameOver') return;
-    
-    // If we are in a result state, wait and then setup the next round.
-    if (['correct', 'incorrect', 'skipped'].includes(gameState)) {
-       const timer = setTimeout(() => {
-          // Move to the next round index *before* setting up the round
-          setCurrentRound(prev => prev + 1);
-          setupRound();
-       }, 1500);
-       return () => clearTimeout(timer);
+    if (gameState === 'playing' && !currentWord) {
+      setupRound();
     }
-  }, [gameState, setupRound]);
+  }, [gameState, currentWord, setupRound]);
   
   const loseLifeAndContinue = useCallback((state: 'incorrect' | 'skipped', message: string) => {
     playSound('incorrect');
@@ -97,20 +91,37 @@ export function GameBoard() {
     setGameState(state);
   }, [currentWord, playSound, toast]);
 
+
   useEffect(() => {
-    if (gameState !== 'playing') return;
+    let roundTimer: NodeJS.Timeout | undefined;
+    let transitionTimer: NodeJS.Timeout | undefined;
 
-    if (timeLeft === 0) {
-      loseLifeAndContinue('incorrect', "Temps écoulé !");
-      return;
+    if (gameState === 'playing') {
+      if (timeLeft === 0) {
+        loseLifeAndContinue('incorrect', "Temps écoulé !");
+      } else {
+        roundTimer = setInterval(() => {
+          setTimeLeft(prev => prev - 1);
+        }, 1000);
+      }
+    } else if (['correct', 'incorrect', 'skipped'].includes(gameState)) {
+      transitionTimer = setTimeout(() => {
+        setCurrentRound(prev => prev + 1);
+      }, 1500);
     }
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
-    }, 1000);
     
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(roundTimer);
+      clearTimeout(transitionTimer);
+    };
   }, [gameState, timeLeft, loseLifeAndContinue]);
+
+  useEffect(() => {
+    if(currentRound > 0 && currentRound < wordList.length) {
+      setupRound();
+    }
+  }, [currentRound]);
+
 
   const handleLetterClick = (letter: string, index: number) => {
     if (userGuess.length < (currentWord?.word.length ?? 0)) {
@@ -174,8 +185,9 @@ export function GameBoard() {
                 <p>Meilleur score : {highScore}</p>
             </div>
             {gameState === 'gameOver' && <p className="text-2xl">Votre score final : {score}</p>}
-            <Button size="lg" onClick={startGame}>
-              {gameState === 'start' ? "Commencer le jeu" : "Rejouer"}
+            <Button size="lg" onClick={startGame} disabled={!isLoaded}>
+              {!isLoaded && <motion.div className="mr-2 h-4 w-4 rounded-full border-2 border-transparent border-t-current animate-spin" />}
+              {gameState === 'start' ? (isLoaded ? "Commencer le jeu" : "Chargement...") : "Rejouer"}
             </Button>
             <div className="pt-4">
                <ExpandContent currentWords={wordList} onWordsExpanded={handleWordsExpanded} />
