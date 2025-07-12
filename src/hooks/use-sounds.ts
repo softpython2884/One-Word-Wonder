@@ -5,7 +5,7 @@ import { Howl } from 'howler';
 
 const SOUNDS = {
   click: 'https://actions.google.com/sounds/v1/ui/button_press.ogg',
-  correct: 'https://actions.google.com/sounds/v1/cartoon/magic_chime.ogg',
+  correct: 'https://actions.google.com/sounds/v1/achievements/achievement_unlocked.ogg',
   incorrect: 'https://actions.google.com/sounds/v1/cartoon/buzz.ogg',
   start: 'https://actions.google.com/sounds/v1/jingles/jingle_start_game.ogg',
   gameOver: 'https://actions.google.com/sounds/v1/jingles/jingle_lose_nice.ogg',

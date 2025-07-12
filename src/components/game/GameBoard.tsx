@@ -33,7 +33,6 @@ export function GameBoard() {
   const { playSound } = useSounds();
 
   useEffect(() => {
-    // This code runs only on the client, after the component has mounted.
     const savedHighScore = localStorage.getItem(HIGH_SCORE_KEY);
     if (savedHighScore) {
       setHighScore(parseInt(savedHighScore, 10));
@@ -75,14 +74,16 @@ export function GameBoard() {
     setupRound();
   }, [setupRound, playSound]);
 
-  const nextRound = useCallback(() => {
-    setCurrentRound(prev => prev + 1);
-  }, []);
-
   useEffect(() => {
     if (gameState === 'start' || gameState === 'gameOver') return;
-    if (gameState !== 'playing') {
+    
+    // If we are in a result state, wait and then setup the next round.
+    if (['correct', 'incorrect', 'skipped'].includes(gameState)) {
        const timer = setTimeout(() => {
+          // Move to the next round index *before* setting up the round
+          if(gameState !== 'correct') { // Don't skip if correct
+             setCurrentRound(prev => prev + 1);
+          }
           setupRound();
        }, 1500);
        return () => clearTimeout(timer);
@@ -91,11 +92,10 @@ export function GameBoard() {
   
   const loseLifeAndContinue = useCallback((state: 'incorrect' | 'skipped', message: string) => {
     playSound('incorrect');
-    toast({ title: message, description: `Le mot était : ${currentWord?.word}`, variant: 'destructive' });
+    toast({ title: message, description: `Le mot était : ${currentWord?.word.toUpperCase()}`, variant: 'destructive' });
     setLives(l => l - 1);
     setStreak(0);
     setGameState(state);
-    // No need for setTimeout here, useEffect for gameState handles it
   }, [currentWord, playSound, toast]);
 
   useEffect(() => {
@@ -150,8 +150,8 @@ export function GameBoard() {
       const streakBonus = streak * 5;
       setScore(s => s + 10 + timeBonus + streakBonus);
       setStreak(s => s + 1);
+      setCurrentRound(prev => prev + 1);
       setGameState('correct');
-      // No need for setTimeout, useEffect for gameState handles it
     } else {
        loseLifeAndContinue('incorrect', "Incorrect !");
     }
@@ -164,7 +164,8 @@ export function GameBoard() {
   const renderGameContent = () => {
     if (gameState === 'start' || gameState === 'gameOver') {
       return (
-        <Card className="w-full max-w-md text-center animate-fade-in">
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+        <Card className="w-full max-w-md text-center">
           <CardHeader>
             <CardTitle className="text-4xl font-headline text-primary">Mot Magique</CardTitle>
             <CardDescription>{gameState === 'start' ? "Testez votre vocabulaire français !" : "Partie terminée !"}</CardDescription>
@@ -183,6 +184,7 @@ export function GameBoard() {
             </div>
           </CardContent>
         </Card>
+        </motion.div>
       );
     }
     
@@ -214,7 +216,7 @@ export function GameBoard() {
             transition={{ duration: 0.3 }}
             className="w-full"
         >
-        <Card className={`w-full transition-shadow duration-300 ${gameState === 'correct' ? 'shadow-lg shadow-green-500/30' : ''}`}>
+        <Card className={`w-full transition-shadow duration-300`}>
           <CardHeader>
             <div className="flex items-center gap-2 text-muted-foreground self-center">
               <BrainCircuit className="h-5 w-5" />
@@ -253,40 +255,43 @@ export function GameBoard() {
         </Card>
         </motion.div>
         </AnimatePresence>
-
-        <AnimatePresence>
-        {['correct', 'incorrect', 'skipped'].includes(gameState) && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.5 }}
-            className="fixed inset-0 bg-background/80 flex flex-col items-center justify-center z-10"
-          >
-            <div className={`p-8 rounded-full shadow-2xl ${gameState === 'correct' ? 'bg-green-100 animate-pulse' : 'bg-red-100 animate-shake'}`}>
-              {gameState === 'correct' ? (
-                 <Check className="w-24 h-24 text-green-500" />
-              ) : (
-                 <X className="w-24 h-24 text-red-500" />
-              )}
-            </div>
-            {gameState === 'correct' ? (
-                <p className="text-4xl font-bold mt-6 text-green-600">Correct !</p>
-            ) : (
-                <>
-                  <p className="text-4xl font-bold mt-6 text-red-600">{gameState === 'skipped' ? 'Passé' : 'Incorrect !'}</p>
-                  <p className="text-2xl font-bold mt-2 text-foreground">{currentWordDisplay}</p>
-                </>
-            )}
-          </motion.div>
-        )}
-        </AnimatePresence>
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-background">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-background overflow-hidden">
       {renderGameContent()}
+      
+      <AnimatePresence>
+        {['correct', 'incorrect', 'skipped'].includes(gameState) && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.3 } }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-50"
+          >
+            <motion.div 
+              initial={{ scale:0 }} animate={{ scale:1 }}
+              className={`p-8 rounded-full shadow-2xl ${gameState === 'correct' ? 'bg-green-100' : 'bg-red-100 animate-shake'}`}>
+              {gameState === 'correct' ? (
+                 <Check className="w-24 h-24 text-green-500" />
+              ) : (
+                 <X className="w-24 h-24 text-red-500" />
+              )}
+            </motion.div>
+            {gameState === 'correct' ? (
+                <motion.p initial={{y: 20, opacity: 0}} animate={{y: 0, opacity: 1, transition: {delay: 0.1}}} className="text-4xl font-bold mt-6 text-green-600">Correct !</motion.p>
+            ) : (
+                <>
+                  <motion.p initial={{y: 20, opacity: 0}} animate={{y: 0, opacity: 1, transition: {delay: 0.1}}} className="text-4xl font-bold mt-6 text-red-600">{gameState === 'skipped' ? 'Passé' : 'Incorrect !'}</motion.p>
+                  <motion.p initial={{y: 20, opacity: 0}} animate={{y: 0, opacity: 1, transition: {delay: 0.2}}} className="text-2xl font-bold mt-2 text-foreground">{currentWordDisplay}</motion.p>
+                </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
