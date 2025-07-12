@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -19,7 +18,7 @@ const HIGH_SCORE_KEY = 'mot-magique-highscore';
 
 export function GameBoard() {
   const [gameState, setGameState] = useState<GameState>('start');
-  const [wordList, setWordList] = useState<Word[]>(INITIAL_WORDS);
+  const [wordList, setWordList] = useState<Word[]>(() => shuffleArray([...INITIAL_WORDS]));
   const [currentRound, setCurrentRound] = useState(0);
   const [currentWord, setCurrentWord] = useState<Word | null>(null);
   const [letterPool, setLetterPool] = useState<string[]>([]);
@@ -30,7 +29,7 @@ export function GameBoard() {
   const [streak, setStreak] = useState(0);
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
   const { toast } = useToast();
-
+  
   useEffect(() => {
     const savedHighScore = localStorage.getItem(HIGH_SCORE_KEY);
     if (savedHighScore) {
@@ -67,7 +66,7 @@ export function GameBoard() {
     setScore(0);
     setLives(MAX_LIVES);
     setStreak(0);
-    setWordList(current => shuffleArray([...current]));
+    setWordList(shuffleArray([...INITIAL_WORDS]));
     setGameState('playing');
   }, []);
 
@@ -112,8 +111,11 @@ export function GameBoard() {
   useEffect(() => {
     if(currentRound > 0 && currentRound < wordList.length) {
       setupRound();
+    } else if (currentRound >= wordList.length) {
+      setGameState('gameOver');
+      updateHighScore();
     }
-  }, [currentRound, wordList.length, setupRound]);
+  }, [currentRound, wordList.length, setupRound, updateHighScore]);
 
 
   const handleLetterClick = (letter: string, index: number) => {
