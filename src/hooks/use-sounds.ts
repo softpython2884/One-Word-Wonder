@@ -4,11 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Howl } from 'howler';
 
 const SOUNDS = {
-  click: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_c631a29a47.mp3', // UI click
-  correct: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_c6cc9b3922.mp3', // Correct answer
-  incorrect: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_94c60a221f.mp3', // Incorrect answer
-  start: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_17152f2096.mp3', // Game start
-  gameOver: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_74c9055486.mp3', // Game over
+  click: 'https://assets.mixkit.co/sfx/preview/mixkit-fast-simple-chop-915.mp3', // UI click
+  correct: 'https://assets.mixkit.co/sfx/preview/mixkit-instant-win-2021.mp3', // Correct answer
+  incorrect: 'https://assets.mixkit.co/sfx/preview/mixkit-player-losing-or-failing-2042.mp3', // Incorrect answer
+  start: 'https://assets.mixkit.co/sfx/preview/mixkit-game-level-completed-2059.mp3', // Game start
+  gameOver: 'https://assets.mixkit.co/sfx/preview/mixkit-arcade-retro-game-over-213.mp3', // Game over
 };
 
 type SoundType = keyof typeof SOUNDS;
