@@ -20,7 +20,7 @@ const HIGH_SCORE_KEY = 'mot-magique-highscore';
 
 export function GameBoard() {
   const [gameState, setGameState] = useState<GameState>('start');
-  const [wordList, setWordList] = useState<Word[]>(() => shuffleArray(INITIAL_WORDS));
+  const [wordList, setWordList] = useState<Word[]>(INITIAL_WORDS);
   const [currentRound, setCurrentRound] = useState(0);
   const [currentWord, setCurrentWord] = useState<Word | null>(null);
   const [letterPool, setLetterPool] = useState<string[]>([]);
@@ -120,7 +120,7 @@ export function GameBoard() {
     if(currentRound > 0 && currentRound < wordList.length) {
       setupRound();
     }
-  }, [currentRound]);
+  }, [currentRound, wordList.length, setupRound]);
 
 
   const handleLetterClick = (letter: string, index: number) => {

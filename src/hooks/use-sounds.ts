@@ -20,7 +20,10 @@ export function useSounds() {
   const isInitialized = useRef(false);
 
   useEffect(() => {
-    if (isInitialized.current) return;
+    if (isInitialized.current || Object.keys(soundBank).length > 0) {
+      setIsLoaded(true);
+      return;
+    };
     isInitialized.current = true;
 
     let soundsLoaded = 0;
@@ -28,32 +31,25 @@ export function useSounds() {
 
     Object.entries(SOUNDS).forEach(([key, src]) => {
       const soundType = key as SoundType;
-      if (!soundBank[soundType]) {
-        const sound = new Howl({
-          src: [src],
-          volume: 0.7,
-          html5: true, 
-          onload: () => {
-            soundsLoaded++;
-            if (soundsLoaded === totalSounds) {
-              setIsLoaded(true);
-            }
-          },
-          onloaderror: (id, error) => {
-            console.error(`Error loading sound ${soundType}:`, error);
-            soundsLoaded++;
-            if (soundsLoaded === totalSounds) {
-              setIsLoaded(true);
-            }
+      const sound = new Howl({
+        src: [src],
+        volume: 0.7,
+        html5: true, 
+        onload: () => {
+          soundsLoaded++;
+          if (soundsLoaded === totalSounds) {
+            setIsLoaded(true);
           }
-        });
-        soundBank[soundType] = sound;
-      } else {
-         const sound = soundBank[soundType];
-         if (sound?.state() === 'loaded') {
-            soundsLoaded++;
-         }
-      }
+        },
+        onloaderror: (id, error) => {
+          console.error(`Error loading sound ${soundType}:`, error);
+          soundsLoaded++;
+          if (soundsLoaded === totalSounds) {
+            setIsLoaded(true);
+          }
+        }
+      });
+      soundBank[soundType] = sound;
     });
 
     if (soundsLoaded === totalSounds) {
