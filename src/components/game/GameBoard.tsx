@@ -77,11 +77,6 @@ export function GameBoard() {
   }, [currentWord, toast]);
 
   useEffect(() => {
-    setupRound(currentRound);
-  }, [currentRound, setupRound]);
-
-
-  useEffect(() => {
     let roundTimer: NodeJS.Timeout | undefined;
     let transitionTimer: NodeJS.Timeout | undefined;
 
@@ -102,6 +97,13 @@ export function GameBoard() {
       clearTimeout(transitionTimer);
     };
   }, [gameState, timeLeft, loseLifeAndContinue]);
+
+  useEffect(() => {
+    if(currentRound > 0) { // Avoid running on initial mount
+        setupRound(currentRound);
+    }
+  }, [currentRound, setupRound]);
+
 
   useEffect(() => {
     if ((currentRound >= wordList.length || lives <= 0) && gameState !== 'start' && gameState !== 'gameOver') {
