@@ -13,8 +13,6 @@ const SOUNDS = {
 
 type SoundType = keyof typeof SOUNDS;
 
-// This will hold the Howl instances.
-// We keep it outside the component to prevent re-creation.
 let soundBank: Partial<Record<SoundType, Howl>> = {};
 
 export function useSounds() {
@@ -34,7 +32,7 @@ export function useSounds() {
         const sound = new Howl({
           src: [src],
           volume: 0.7,
-          html5: true, // Helps with compatibility
+          html5: true, 
           onload: () => {
             soundsLoaded++;
             if (soundsLoaded === totalSounds) {
@@ -43,7 +41,6 @@ export function useSounds() {
           },
           onloaderror: (id, error) => {
             console.error(`Error loading sound ${soundType}:`, error);
-             // Still count it to not block loading forever
             soundsLoaded++;
             if (soundsLoaded === totalSounds) {
               setIsLoaded(true);
@@ -52,7 +49,6 @@ export function useSounds() {
         });
         soundBank[soundType] = sound;
       } else {
-         // If already in bank, count as loaded
          const sound = soundBank[soundType];
          if (sound?.state() === 'loaded') {
             soundsLoaded++;
@@ -64,9 +60,6 @@ export function useSounds() {
         setIsLoaded(true);
     }
     
-    return () => {
-      // We don't unload sounds anymore on unmount to keep them in cache
-    };
   }, []);
 
   const playSound = useCallback((soundType: SoundType) => {
