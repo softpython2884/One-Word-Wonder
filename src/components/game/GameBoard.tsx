@@ -10,7 +10,6 @@ import { INITIAL_WORDS, type Word } from '@/lib/words';
 import { generateLetterPool, shuffleArray } from '@/lib/game-utils';
 import { ExpandContent } from './ExpandContent';
 import { useToast } from '@/hooks/use-toast';
-import { useSounds } from '@/hooks/use-sounds';
 
 type GameState = 'start' | 'playing' | 'correct' | 'incorrect' | 'skipped' | 'gameOver';
 
@@ -31,7 +30,6 @@ export function GameBoard() {
   const [streak, setStreak] = useState(0);
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
   const { toast } = useToast();
-  const { playSound, isLoaded } = useSounds();
 
   useEffect(() => {
     const savedHighScore = localStorage.getItem(HIGH_SCORE_KEY);
@@ -52,7 +50,6 @@ export function GameBoard() {
 
   const setupRound = useCallback(() => {
     if (lives <= 0 || currentRound >= wordList.length) {
-      playSound('gameOver');
       setGameState('gameOver');
       updateHighScore();
       return;
@@ -63,19 +60,16 @@ export function GameBoard() {
     setUserGuess([]);
     setTimeLeft(ROUND_TIME);
     setGameState('playing');
-  }, [currentRound, wordList, lives, playSound, updateHighScore]);
+  }, [currentRound, wordList, lives, updateHighScore]);
 
   const startGame = useCallback(() => {
     setCurrentRound(0);
     setScore(0);
     setLives(MAX_LIVES);
     setStreak(0);
-    setWordList(current => shuffleArray(current));
-    playSound('start');
-    // We call setupRound inside a useEffect based on gameState change now
-    // to ensure sound plays first.
-    setGameState('playing'); 
-  }, [playSound]);
+    setWordList(current => shuffleArray([...current]));
+    setGameState('playing');
+  }, []);
 
   useEffect(() => {
     if (gameState === 'playing' && !currentWord) {
@@ -84,12 +78,11 @@ export function GameBoard() {
   }, [gameState, currentWord, setupRound]);
   
   const loseLifeAndContinue = useCallback((state: 'incorrect' | 'skipped', message: string) => {
-    playSound('incorrect');
     toast({ title: message, description: `Le mot était : ${currentWord?.word.toUpperCase()}`, variant: 'destructive' });
     setLives(l => l - 1);
     setStreak(0);
     setGameState(state);
-  }, [currentWord, playSound, toast]);
+  }, [currentWord, toast]);
 
 
   useEffect(() => {
@@ -125,7 +118,6 @@ export function GameBoard() {
 
   const handleLetterClick = (letter: string, index: number) => {
     if (userGuess.length < (currentWord?.word.length ?? 0)) {
-      playSound('click');
       setUserGuess([...userGuess, letter]);
       const newPool = [...letterPool];
       newPool[index] = '';
@@ -135,7 +127,6 @@ export function GameBoard() {
 
   const handleBackspace = () => {
     if (userGuess.length > 0) {
-      playSound('click');
       const lastLetter = userGuess[userGuess.length - 1];
       const newGuess = userGuess.slice(0, -1);
       setUserGuess(newGuess);
@@ -155,7 +146,6 @@ export function GameBoard() {
 
   const handleSubmit = () => {
     if (userGuess.join('') === currentWord?.word) {
-      playSound('correct');
       const timeBonus = Math.max(0, timeLeft);
       const streakBonus = streak * 5;
       setScore(s => s + 10 + timeBonus + streakBonus);
@@ -185,9 +175,8 @@ export function GameBoard() {
                 <p>Meilleur score : {highScore}</p>
             </div>
             {gameState === 'gameOver' && <p className="text-2xl">Votre score final : {score}</p>}
-            <Button size="lg" onClick={startGame} disabled={!isLoaded}>
-              {!isLoaded && <motion.div className="mr-2 h-4 w-4 rounded-full border-2 border-transparent border-t-current animate-spin" />}
-              {gameState === 'start' ? (isLoaded ? "Commencer le jeu" : "Chargement...") : "Rejouer"}
+            <Button size="lg" onClick={startGame}>
+              {gameState === 'start' ? "Commencer le jeu" : "Rejouer"}
             </Button>
             <div className="pt-4">
                <ExpandContent currentWords={wordList} onWordsExpanded={handleWordsExpanded} />
@@ -245,7 +234,7 @@ export function GameBoard() {
               ))}
             </div>
             
-            <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 w-full max-w-md">
+            <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 w-full max-w-sm">
               {letterPool.map((letter, index) => (
                 <Button key={index} variant="outline" size="lg"
                         className="h-12 md:h-14 text-xl md:text-2xl uppercase disabled:opacity-0 transition-all duration-200"
