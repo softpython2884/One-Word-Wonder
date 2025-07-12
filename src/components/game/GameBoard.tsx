@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, Star, BrainCircuit, Check, X, Heart, ChevronsRight, Trophy, Lightbulb, Gamepad2 } from 'lucide-react';
+import { Clock, Star, BrainCircuit, Check, X, Heart, ChevronsRight, Trophy, Lightbulb, Gamepad2, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { INITIAL_WORDS, type Word } from '@/lib/words';
@@ -83,7 +83,6 @@ export function GameBoard() {
       updateHighScore();
       return;
     }
-    setGameState('playing');
     const word = wordList[roundIndex];
     setCurrentWord(word);
     const normalizedWord = normalizeString(word.word);
@@ -91,6 +90,7 @@ export function GameBoard() {
     setUserGuess(Array(normalizedWord.length).fill(''));
     setRevealedByHint([]);
     setTimeLeft(ROUND_TIME);
+    setGameState('playing');
   }, [wordList, lives, updateHighScore]);
 
   const requestFullScreen = () => {
@@ -362,13 +362,17 @@ export function GameBoard() {
               ))}
             </div>
             
-            <div className="flex flex-wrap justify-center gap-2 md:gap-4">
-              <Button onClick={handleBackspace} variant="secondary" disabled={gameState !== 'playing'}>Effacer</Button>
-              <Button onClick={handleSubmit} disabled={userGuess.join('').length !== normalizedCurrentWord.length || gameState !== 'playing'}>Valider</Button>
-              <Button onClick={useHint} variant="outline" className="bg-yellow-400 hover:bg-yellow-500" disabled={hintsLeft <= 0 || gameState !== 'playing'}>
-                <Lightbulb className="mr-2" /> Indice
+            <div className="w-full flex flex-col items-center gap-2 md:gap-3">
+              <div className="flex justify-center gap-2 md:gap-4">
+                 <Button onClick={handleBackspace} variant="secondary" disabled={gameState !== 'playing'}><RotateCcw className="mr-2" />Effacer</Button>
+                  <Button onClick={useHint} variant="outline" className="bg-yellow-400 hover:bg-yellow-500" disabled={hintsLeft <= 0 || gameState !== 'playing'}>
+                    <Lightbulb className="mr-2" /> Indice
+                  </Button>
+                  <Button onClick={handleSkip} variant="ghost" disabled={gameState !== 'playing'}>Passer <ChevronsRight className="hidden sm:inline" /></Button>
+              </div>
+              <Button onClick={handleSubmit} size="lg" className="w-full max-w-xs" disabled={userGuess.join('').length !== normalizedCurrentWord.length || gameState !== 'playing'}>
+                <Check className="mr-2" /> Valider
               </Button>
-              <Button onClick={handleSkip} variant="ghost" disabled={gameState !== 'playing'}>Passer <ChevronsRight className="hidden sm:inline" /></Button>
             </div>
           </CardContent>
         </Card>
