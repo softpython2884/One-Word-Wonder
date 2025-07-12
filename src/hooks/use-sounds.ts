@@ -4,11 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Howl } from 'howler';
 
 const SOUNDS = {
-  click: 'https://actions.google.com/sounds/v1/ui/button_press.ogg',
-  correct: 'https://actions.google.com/sounds/v1/achievements/achievement_unlocked.ogg',
-  incorrect: 'https://actions.google.com/sounds/v1/cartoon/buzz.ogg',
-  start: 'https://actions.google.com/sounds/v1/jingles/jingle_start_game.ogg',
-  gameOver: 'https://actions.google.com/sounds/v1/jingles/jingle_lose_nice.ogg',
+  click: 'https://cdn.pixabay.com/audio/2022/03/15/audio_2433c6439b.mp3', // UI click
+  correct: 'https://cdn.pixabay.com/audio/2022/11/22/audio_13f89c90f0.mp3', // Correct answer
+  incorrect: 'https://cdn.pixabay.com/audio/2021/08/04/audio_c668156e23.mp3', // Incorrect answer
+  start: 'https://cdn.pixabay.com/audio/2022/08/27/audio_394451a89c.mp3', // Game start
+  gameOver: 'https://cdn.pixabay.com/audio/2022/05/17/audio_472b0a8874.mp3', // Game over
 };
 
 type SoundType = keyof typeof SOUNDS;
@@ -34,6 +34,7 @@ export function useSounds() {
         const sound = new Howl({
           src: [src],
           volume: 0.7,
+          html5: true, // Helps with compatibility
           onload: () => {
             soundsLoaded++;
             if (soundsLoaded === totalSounds) {
@@ -52,7 +53,10 @@ export function useSounds() {
         soundBank[soundType] = sound;
       } else {
          // If already in bank, count as loaded
-         soundsLoaded++;
+         const sound = soundBank[soundType];
+         if (sound?.state() === 'loaded') {
+            soundsLoaded++;
+         }
       }
     });
 
@@ -62,9 +66,6 @@ export function useSounds() {
     
     return () => {
       // We don't unload sounds anymore on unmount to keep them in cache
-      // This is generally better for SPA-like experiences.
-      // Object.values(soundBank).forEach(sound => sound?.unload());
-      // soundBank = {};
     };
   }, []);
 
