@@ -50,6 +50,23 @@ export function GameBoard() {
     }
   }, []);
 
+  useEffect(() => {
+    if (gameState === 'correct' || gameState === 'incorrect' || gameState === 'skipped') {
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+      }
+      transitionTimerRef.current = setTimeout(() => {
+        setCurrentRound(prev => prev + 1);
+      }, 1500);
+    }
+    return () => {
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+      }
+    };
+  }, [gameState]);
+
+
   const updateHighScore = useCallback(() => {
     if (score > highScore) {
       setHighScore(score);
@@ -66,6 +83,7 @@ export function GameBoard() {
       updateHighScore();
       return;
     }
+    setGameState('playing');
     const word = wordList[roundIndex];
     setCurrentWord(word);
     const normalizedWord = normalizeString(word.word);
@@ -73,13 +91,8 @@ export function GameBoard() {
     setUserGuess(Array(normalizedWord.length).fill(''));
     setRevealedByHint([]);
     setTimeLeft(ROUND_TIME);
-    setGameState('playing');
   }, [wordList, lives, updateHighScore]);
 
-  const advanceToNextRound = useCallback(() => {
-    setCurrentRound(prev => prev + 1);
-  }, []);
-  
   const requestFullScreen = () => {
     const element = document.documentElement;
     if (element.requestFullscreen) {
@@ -104,22 +117,12 @@ export function GameBoard() {
     requestFullScreen();
   }, [setupRound]);
   
-  const transitionToNextRound = useCallback(() => {
-      if (transitionTimerRef.current) {
-        clearTimeout(transitionTimerRef.current);
-      }
-      transitionTimerRef.current = setTimeout(() => {
-        advanceToNextRound();
-      }, 1500);
-  }, [advanceToNextRound]);
-
   const loseLifeAndContinue = useCallback((state: 'incorrect' | 'skipped', message: string) => {
     toast({ title: message, description: `Le mot était : ${currentWordDisplay}`, variant: 'destructive' });
     setLives(l => l - 1);
     setStreak(0);
     setGameState(state);
-    transitionToNextRound();
-  }, [currentWordDisplay, toast, transitionToNextRound]);
+  }, [currentWordDisplay, toast]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout | undefined;
@@ -134,11 +137,10 @@ export function GameBoard() {
   }, [gameState, timeLeft, loseLifeAndContinue]);
 
   useEffect(() => {
-    // Only setup round when currentRound changes and game is not over
     if (gameState !== 'start' && gameState !== 'gameOver') {
         setupRound(currentRound);
     }
-  }, [currentRound, gameState, setupRound]);
+  }, [currentRound]);
 
 
   useEffect(() => {
@@ -261,7 +263,6 @@ export function GameBoard() {
       }
 
       setGameState('correct');
-      transitionToNextRound();
     } else {
        loseLifeAndContinue('incorrect', "Incorrect !");
     }
@@ -413,5 +414,3 @@ export function GameBoard() {
     </div>
   );
 }
-
-    
