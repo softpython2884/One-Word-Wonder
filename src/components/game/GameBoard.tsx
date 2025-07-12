@@ -17,8 +17,8 @@ const MAX_LIVES = 3;
 const HIGH_SCORE_KEY = 'mot-magique-highscore';
 
 export function GameBoard() {
-  const [gameState, setGameState] = useState<GameState>('start');
   const [wordList, setWordList] = useState<Word[]>(() => shuffleArray([...INITIAL_WORDS]));
+  const [gameState, setGameState] = useState<GameState>('start');
   const [currentRound, setCurrentRound] = useState(0);
   const [currentWord, setCurrentWord] = useState<Word | null>(null);
   const [letterPool, setLetterPool] = useState<string[]>([]);
@@ -77,32 +77,33 @@ export function GameBoard() {
   }, [currentWord, toast]);
 
   useEffect(() => {
-    let roundTimer: NodeJS.Timeout | undefined;
-    let transitionTimer: NodeJS.Timeout | undefined;
-
+    let timer: NodeJS.Timeout | undefined;
     if (gameState === 'playing' && timeLeft > 0) {
-      roundTimer = setInterval(() => {
+      timer = setInterval(() => {
         setTimeLeft(prev => prev - 1);
       }, 1000);
     } else if (gameState === 'playing' && timeLeft === 0) {
       loseLifeAndContinue('incorrect', "Temps écoulé !");
-    } else if (['correct', 'incorrect', 'skipped'].includes(gameState)) {
+    }
+    return () => clearInterval(timer);
+  }, [gameState, timeLeft, loseLifeAndContinue]);
+
+  useEffect(() => {
+    let transitionTimer: NodeJS.Timeout | undefined;
+    if (['correct', 'incorrect', 'skipped'].includes(gameState)) {
       transitionTimer = setTimeout(() => {
         setCurrentRound(prev => prev + 1);
       }, 1500);
     }
-    
-    return () => {
-      clearInterval(roundTimer);
-      clearTimeout(transitionTimer);
-    };
-  }, [gameState, timeLeft, loseLifeAndContinue]);
+    return () => clearTimeout(transitionTimer);
+  }, [gameState]);
+
 
   useEffect(() => {
-    if(currentRound > 0) { // Avoid running on initial mount
+    if(gameState !== 'start') {
         setupRound(currentRound);
     }
-  }, [currentRound, setupRound]);
+  }, [currentRound]);
 
 
   useEffect(() => {
