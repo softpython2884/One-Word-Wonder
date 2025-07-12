@@ -6,7 +6,7 @@ import { Clock, Star, BrainCircuit, Check, X, Heart, ChevronsRight, Trophy } fro
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { INITIAL_WORDS, type Word } from '@/lib/words';
-import { generateLetterPool, shuffleArray } from '@/lib/game-utils';
+import { generateLetterPool, shuffleArray, normalizeString } from '@/lib/game-utils';
 import { ExpandContent } from './ExpandContent';
 import { useToast } from '@/hooks/use-toast';
 
@@ -15,9 +15,10 @@ type GameState = 'start' | 'playing' | 'correct' | 'incorrect' | 'skipped' | 'ga
 const ROUND_TIME = 60;
 const MAX_LIVES = 3;
 const HIGH_SCORE_KEY = 'mot-magique-highscore';
+const STREAK_TO_REGAIN_LIFE = 5;
 
 export function GameBoard() {
-  const [wordList, setWordList] = useState<Word[]>(() => shuffleArray([...INITIAL_WORDS]));
+  const [wordList, setWordList] = useState<Word[]>([]);
   const [gameState, setGameState] = useState<GameState>('start');
   const [currentRound, setCurrentRound] = useState(0);
   const [currentWord, setCurrentWord] = useState<Word | null>(null);
@@ -35,6 +36,8 @@ export function GameBoard() {
     if (savedHighScore) {
       setHighScore(parseInt(savedHighScore, 10));
     }
+    // Initial shuffle
+    setWordList(shuffleArray([...INITIAL_WORDS]));
   }, []);
 
   const updateHighScore = useCallback(() => {
@@ -45,6 +48,7 @@ export function GameBoard() {
   }, [score, highScore]);
 
   const currentWordDisplay = useMemo(() => currentWord?.word.toUpperCase() ?? '', [currentWord]);
+  const normalizedCurrentWord = useMemo(() => currentWord ? normalizeString(currentWord.word) : '', [currentWord]);
 
   const setupRound = useCallback((roundIndex: number) => {
     if (roundIndex >= wordList.length || lives <= 0) {
@@ -54,7 +58,7 @@ export function GameBoard() {
     }
     const word = wordList[roundIndex];
     setCurrentWord(word);
-    setLetterPool(generateLetterPool(word.word));
+    setLetterPool(generateLetterPool(normalizeString(word.word)));
     setUserGuess([]);
     setTimeLeft(ROUND_TIME);
     setGameState('playing');
@@ -70,11 +74,11 @@ export function GameBoard() {
   }, [setupRound]);
   
   const loseLifeAndContinue = useCallback((state: 'incorrect' | 'skipped', message: string) => {
-    toast({ title: message, description: `Le mot était : ${currentWord?.word.toUpperCase()}`, variant: 'destructive' });
+    toast({ title: message, description: `Le mot était : ${currentWordDisplay}`, variant: 'destructive' });
     setLives(l => l - 1);
     setStreak(0);
     setGameState(state);
-  }, [currentWord, toast]);
+  }, [currentWordDisplay, toast]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout | undefined;
@@ -100,10 +104,10 @@ export function GameBoard() {
 
 
   useEffect(() => {
-    if(gameState !== 'start') {
+    if(gameState !== 'start' && gameState !== 'gameOver' && currentRound > 0) {
         setupRound(currentRound);
     }
-  }, [currentRound]);
+  }, [currentRound, setupRound, gameState]);
 
 
   useEffect(() => {
@@ -115,7 +119,7 @@ export function GameBoard() {
 
 
   const handleLetterClick = (letter: string, index: number) => {
-    if (userGuess.length < (currentWord?.word.length ?? 0)) {
+    if (userGuess.length < (normalizedCurrentWord.length ?? 0)) {
       setUserGuess([...userGuess, letter]);
       const newPool = [...letterPool];
       newPool[index] = '';
@@ -145,11 +149,23 @@ export function GameBoard() {
 
   const handleSubmit = () => {
     if(gameState !== 'playing') return;
-    if (userGuess.join('').toLowerCase() === currentWord?.word.toLowerCase()) {
+    if (userGuess.join('') === normalizedCurrentWord) {
       const timeBonus = Math.max(0, timeLeft);
+      const newStreak = streak + 1;
       const streakBonus = streak * 5;
       setScore(s => s + 10 + timeBonus + streakBonus);
-      setStreak(s => s + 1);
+      setStreak(newStreak);
+
+      if (newStreak > 0 && newStreak % STREAK_TO_REGAIN_LIFE === 0) {
+        setLives(l => {
+            if (l < MAX_LIVES) {
+                toast({ title: "Vie récupérée !", description: "Super série ! Vous avez regagné une vie." });
+                return l + 1;
+            }
+            return l;
+        });
+      }
+
       setGameState('correct');
     } else {
        loseLifeAndContinue('incorrect', "Incorrect !");
@@ -227,7 +243,7 @@ export function GameBoard() {
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-4 md:gap-6">
             <div className="flex justify-center flex-wrap gap-1.5 md:gap-2">
-              {currentWord?.word.split('').map((_, index) => (
+              {normalizedCurrentWord.split('').map((_, index) => (
                 <div key={index} className="w-10 h-12 md:w-12 md:h-14 bg-secondary rounded-md flex items-center justify-center text-xl md:text-2xl font-bold uppercase shadow-inner">
                   {userGuess[index] || ''}
                 </div>
@@ -247,7 +263,7 @@ export function GameBoard() {
             
             <div className="flex flex-wrap justify-center gap-2 md:gap-4">
               <Button onClick={handleBackspace} variant="secondary" disabled={gameState !== 'playing'}>Effacer</Button>
-              <Button onClick={handleSubmit} disabled={userGuess.length !== currentWord?.word.length || gameState !== 'playing'}>Valider</Button>
+              <Button onClick={handleSubmit} disabled={userGuess.length !== normalizedCurrentWord.length || gameState !== 'playing'}>Valider</Button>
               <Button onClick={handleSkip} variant="ghost" disabled={gameState !== 'playing'}>Passer <ChevronsRight className="hidden sm:inline" /></Button>
             </div>
           </CardContent>

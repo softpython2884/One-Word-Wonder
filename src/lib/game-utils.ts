@@ -24,9 +24,17 @@ export function shuffleArray<T>(array: T[]): T[] {
   return newArray;
 }
 
+/**
+ * Removes diacritics (accents) from a string.
+ * e.g., "crème brûlée" -> "creme brulee"
+ */
+export function normalizeString(str: string): string {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
 
 export function generateLetterPool(word: string, size: number = 12): string[] {
-  const wordLetters = word.toLowerCase().split('');
+  const normalizedWord = normalizeString(word);
+  const wordLetters = normalizedWord.split('');
   const neededDistractors = size - wordLetters.length;
 
   if (neededDistractors < 0) {
