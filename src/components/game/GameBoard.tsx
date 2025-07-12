@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -81,9 +82,7 @@ export function GameBoard() {
     if (['correct', 'incorrect', 'skipped'].includes(gameState)) {
        const timer = setTimeout(() => {
           // Move to the next round index *before* setting up the round
-          if(gameState !== 'correct') { // Don't skip if correct
-             setCurrentRound(prev => prev + 1);
-          }
+          setCurrentRound(prev => prev + 1);
           setupRound();
        }, 1500);
        return () => clearTimeout(timer);
@@ -150,7 +149,6 @@ export function GameBoard() {
       const streakBonus = streak * 5;
       setScore(s => s + 10 + timeBonus + streakBonus);
       setStreak(s => s + 1);
-      setCurrentRound(prev => prev + 1);
       setGameState('correct');
     } else {
        loseLifeAndContinue('incorrect', "Incorrect !");
@@ -164,8 +162,8 @@ export function GameBoard() {
   const renderGameContent = () => {
     if (gameState === 'start' || gameState === 'gameOver') {
       return (
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
-        <Card className="w-full max-w-md text-center">
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="w-full">
+        <Card className="w-full max-w-md mx-auto text-center">
           <CardHeader>
             <CardTitle className="text-4xl font-headline text-primary">Mot Magique</CardTitle>
             <CardDescription>{gameState === 'start' ? "Testez votre vocabulaire français !" : "Partie terminée !"}</CardDescription>
@@ -189,7 +187,7 @@ export function GameBoard() {
     }
     
     return (
-      <div className="w-full max-w-2xl flex flex-col items-center gap-6">
+      <div className="w-full max-w-md mx-auto flex flex-col items-center gap-4 md:gap-6">
         <div className="w-full flex justify-between items-center text-lg px-2">
           <div className="flex items-center gap-2 font-semibold">
             <Star className="text-primary"/> <span>{score}</span>
@@ -222,23 +220,23 @@ export function GameBoard() {
               <BrainCircuit className="h-5 w-5" />
               <p className="font-semibold text-sm">INDICE</p>
             </div>
-            <CardDescription className="text-xl text-center font-serif h-12 flex items-center justify-center p-2">
+            <CardDescription className="text-lg md:text-xl text-center font-serif h-12 flex items-center justify-center p-2">
               {currentWord?.clue}
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col items-center gap-6">
-            <div className="flex justify-center flex-wrap gap-2">
+          <CardContent className="flex flex-col items-center gap-4 md:gap-6">
+            <div className="flex justify-center flex-wrap gap-1.5 md:gap-2">
               {currentWord?.word.split('').map((_, index) => (
-                <div key={index} className="w-12 h-14 bg-secondary rounded-md flex items-center justify-center text-2xl font-bold uppercase shadow-inner">
+                <div key={index} className="w-10 h-12 md:w-12 md:h-14 bg-secondary rounded-md flex items-center justify-center text-xl md:text-2xl font-bold uppercase shadow-inner">
                   {userGuess[index] || ''}
                 </div>
               ))}
             </div>
             
-            <div className="grid grid-cols-6 gap-2 w-full max-w-md">
+            <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 w-full max-w-md">
               {letterPool.map((letter, index) => (
                 <Button key={index} variant="outline" size="lg"
-                        className="h-14 text-2xl uppercase disabled:opacity-0 transition-all duration-200"
+                        className="h-12 md:h-14 text-xl md:text-2xl uppercase disabled:opacity-0 transition-all duration-200"
                         onClick={() => handleLetterClick(letter, index)}
                         disabled={!letter || gameState !== 'playing'}>
                   {letter}
@@ -246,10 +244,10 @@ export function GameBoard() {
               ))}
             </div>
             
-            <div className="flex gap-4">
+            <div className="flex flex-wrap justify-center gap-2 md:gap-4">
               <Button onClick={handleBackspace} variant="secondary" disabled={gameState !== 'playing'}>Effacer</Button>
               <Button onClick={handleSubmit} disabled={userGuess.length !== currentWord?.word.length || gameState !== 'playing'}>Valider</Button>
-              <Button onClick={handleSkip} variant="ghost" disabled={gameState !== 'playing'}>Passer <ChevronsRight /></Button>
+              <Button onClick={handleSkip} variant="ghost" disabled={gameState !== 'playing'}>Passer <ChevronsRight className="hidden sm:inline" /></Button>
             </div>
           </CardContent>
         </Card>
@@ -260,7 +258,7 @@ export function GameBoard() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-background overflow-hidden">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center p-2 sm:p-4 bg-background overflow-hidden">
       {renderGameContent()}
       
       <AnimatePresence>
@@ -270,23 +268,23 @@ export function GameBoard() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.3 } }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-50"
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-50 p-4"
           >
             <motion.div 
               initial={{ scale:0 }} animate={{ scale:1 }}
               className={`p-8 rounded-full shadow-2xl ${gameState === 'correct' ? 'bg-green-100' : 'bg-red-100 animate-shake'}`}>
               {gameState === 'correct' ? (
-                 <Check className="w-24 h-24 text-green-500" />
+                 <Check className="w-16 h-16 md:w-24 md:h-24 text-green-500" />
               ) : (
-                 <X className="w-24 h-24 text-red-500" />
+                 <X className="w-16 h-16 md:w-24 md:h-24 text-red-500" />
               )}
             </motion.div>
             {gameState === 'correct' ? (
-                <motion.p initial={{y: 20, opacity: 0}} animate={{y: 0, opacity: 1, transition: {delay: 0.1}}} className="text-4xl font-bold mt-6 text-green-600">Correct !</motion.p>
+                <motion.p initial={{y: 20, opacity: 0}} animate={{y: 0, opacity: 1, transition: {delay: 0.1}}} className="text-3xl md:text-4xl font-bold mt-6 text-green-600">Correct !</motion.p>
             ) : (
                 <>
-                  <motion.p initial={{y: 20, opacity: 0}} animate={{y: 0, opacity: 1, transition: {delay: 0.1}}} className="text-4xl font-bold mt-6 text-red-600">{gameState === 'skipped' ? 'Passé' : 'Incorrect !'}</motion.p>
-                  <motion.p initial={{y: 20, opacity: 0}} animate={{y: 0, opacity: 1, transition: {delay: 0.2}}} className="text-2xl font-bold mt-2 text-foreground">{currentWordDisplay}</motion.p>
+                  <motion.p initial={{y: 20, opacity: 0}} animate={{y: 0, opacity: 1, transition: {delay: 0.1}}} className="text-3xl md:text-4xl font-bold mt-6 text-red-600">{gameState === 'skipped' ? 'Passé' : 'Incorrect !'}</motion.p>
+                  <motion.p initial={{y: 20, opacity: 0}} animate={{y: 0, opacity: 1, transition: {delay: 0.2}}} className="text-xl md:text-2xl font-bold mt-2 text-foreground">{currentWordDisplay}</motion.p>
                 </>
             )}
           </motion.div>
@@ -295,3 +293,5 @@ export function GameBoard() {
     </div>
   );
 }
+
+    
